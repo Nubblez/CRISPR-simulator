@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CRISPR Simulator</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; background: #f0f4f8; padding: 20px; }
+        .container { max-width: 900px; margin: 0 auto; background: white; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); overflow: hidden; }
+        .header { background: #2c3e50; color: white; padding: 20px; text-align: center; }
+        .tabs { display: flex; background: #34495e; }
+        .tab { flex: 1; padding: 15px; text-align: center; color: white; cursor: pointer; transition: 0.3s; border: none; background: none; font-size: 16px; }
+        .tab:hover { background: #2c3e50; }
+        .tab.active { background: #3498db; }
+        .panel { display: none; padding: 30px; }
+        .panel.active { display: block; }
+        .dna-container { background: #ecf0f1; padding: 20px; border-radius: 8px; margin: 20px 0; position: relative; }
+        canvas { display: block; margin: 0 auto; border: 2px solid #bdc3c7; border-radius: 5px; background: white; }
+        .controls { margin: 20px 0; }
+        .input-group { margin: 15px 0; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; color: #2c3e50; }
+        input[type="text"] { width: 100%; padding: 10px; border: 2px solid #bdc3c7; border-radius: 5px; font-family: monospace; font-size: 14px; }
+        button { background: #3498db; color: white; border: none; padding: 12px 30px; border-radius: 5px; cursor: pointer; font-size: 16px; margin: 5px; transition: 0.3s; }
+        button:hover { background: #2980b9; }
+        button:active { transform: scale(0.98); }
+        .result { margin-top: 20px; padding: 15px; border-radius: 5px; font-weight: bold; text-align: center; display: none; }
+        .result.success { background: #d4edda; color: #155724; display: block; }
+        .result.warning { background: #fff3cd; color: #856404; display: block; }
+        .trait-buttons { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin: 20px 0; }
+        .trait-btn { padding: 15px; border: 2px solid #bdc3c7; border-radius: 8px; cursor: pointer; transition: 0.3s; text-align: center; }
+        .trait-btn.green { border-color: #27ae60; background: #d5f4e6; }
+        .trait-btn.red { border-color: #e74c3c; background: #fadbd8; }
+        .trait-btn:hover { transform: translateY(-3px); box-shadow: 0 4px 8px rgba(0,0,0,0.2); }
+        .risk-meter { margin: 20px 0; }
+        .risk-bar { height: 30px; background: #ecf0f1; border-radius: 15px; overflow: hidden; position: relative; }
+        .risk-fill { height: 100%; background: linear-gradient(to right, #27ae60, #f39c12, #e74c3c); width: 0; transition: 0.5s; }
+        .info-box { background: #e8f4f8; padding: 15px; border-left: 4px solid #3498db; margin: 20px 0; border-radius: 5px; }
+        .tooltip { position: relative; display: inline-block; cursor: help; color: #3498db; text-decoration: underline dotted; }
+        .tooltip .tooltiptext { visibility: hidden; width: 250px; background: #34495e; color: white; text-align: center; border-radius: 6px; padding: 10px; position: absolute; z-index: 1; bottom: 125%; left: 50%; margin-left: -125px; opacity: 0; transition: 0.3s; }
+        .tooltip:hover .tooltiptext { visibility: visible; opacity: 1; }
+        .hint-box { background: #fff3cd; padding: 15px; border-left: 4px solid #f39c12; margin: 20px 0; border-radius: 5px; }
+        .process-box { background: #d4edda; padding: 20px; border-left: 4px solid #27ae60; margin: 20px 0; border-radius: 5px; display: none; }
+        .process-box.show { display: block; }
+        .process-step { margin: 15px 0; padding: 10px; background: white; border-radius: 5px; }
+        .process-step strong { color: #27ae60; display: block; margin-bottom: 5px; }
+        .mutation-compare { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin: 15px 0; }
+        .mutation-box { padding: 15px; border-radius: 5px; text-align: center; }
+        .mutation-box.before { background: #fadbd8; border: 2px solid #e74c3c; }
+        .mutation-box.after { background: #d5f4e6; border: 2px solid #27ae60; }
+        .mutation-box h4 { margin-bottom: 10px; }
+        .mutation-box code { background: white; padding: 5px 10px; border-radius: 3px; font-size: 14px; display: block; margin: 5px 0; }
+        @media (max-width: 600px) { .trait-buttons { grid-template-columns: 1fr; } .mutation-compare { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🧬 CRISPR Simulator</h1>
+            <p>Interactive Gene Editing Tool</p>
+        </div>
+        
+        <div class="tabs">
+            <button class="tab active" onclick="switchTab(0)">Learn the Basics</button>
+            <button class="tab" onclick="switchTab(1)">Cancer Therapy</button>
+            <button class="tab" onclick="switchTab(2)">Designer Babies</button>
+        </div>
+
+        <!-- ==================== SECTION 1: LEARN THE BASICS ==================== -->
+        <div class="panel active" id="panel0">
+            <h2>🎓 CRISPR Basics: Understanding the Science</h2>
+            <p>Learn the fundamental concepts behind CRISPR gene editing technology.</p>
+
+            <div class="info-box" style="margin-top: 30px;">
+                <h3 style="color: #2c3e50; margin-bottom: 15px;">🧬 What is DNA?</h3>
+                <p><strong>DNA (Deoxyribonucleic Acid)</strong> is the instruction manual for all living things. It's like a recipe book that tells your cells how to build and maintain your body.</p>
+                
+                <div style="margin: 20px 0; padding: 15px; background: white; border-radius: 5px;">
+                    <p><strong>DNA has 4 letters (bases):</strong></p>
+                    <ul style="margin-left: 20px; margin-top: 10px; line-height: 1.8;">
+                        <li><strong style="color: #e74c3c;">A</strong> = Adenine (pairs with T in DNA, U in RNA)</li>
+                        <li><strong style="color: #3498db;">T</strong> = Thymine (pairs with A) - only in DNA</li>
+                        <li><strong style="color: #2ecc71;">C</strong> = Cytosine (pairs with G)</li>
+                        <li><strong style="color: #f39c12;">G</strong> = Guanine (pairs with C)</li>
+                    </ul>
+                    <p style="margin-top: 15px;"><strong>RNA uses U (Uracil) instead of T!</strong> So RNA bases are: A, U, C, G</p>
+                    <p style="margin-top: 10px;">These bases form pairs and twist into a double helix (spiral staircase shape). The sequence of these letters creates genes that determine everything about you—eye color, height, and even disease risk!</p>
+                </div>
+
+                <div style="background: #fff3cd; padding: 15px; border-radius: 5px; margin-top: 10px;">
+                    <strong>Example DNA Sequence:</strong><br>
+                    <code style="background: white; padding: 8px; display: inline-block; margin-top: 5px; border-radius: 3px; font-size: 16px;">ATCGATCG</code><br>
+                    <strong>Complementary RNA:</strong><br>
+                    <code style="background: white; padding: 8px; display: inline-block; margin-top: 5px; border-radius: 3px; font-size: 16px;">UAGCUAGC</code><br>
+                    <small>Notice: A↔U, T↔A, C↔G, G↔C pairing!</small>
+                </div>
+            </div>
+
+            <div class="info-box" style="background: #fef5e7; border-left-color: #f39c12;">
+                <h3 style="color: #2c3e50; margin-bottom: 15px;">✂️ What is Cas9?</h3>
+                <p><strong>Cas9</strong> is a protein that acts like <strong>molecular scissors</strong>. It's the cutting tool in the CRISPR system.</p>
+                
+                <div style="margin: 20px 0; padding: 15px; background: white; border-radius: 5px;">
+                    <p><strong>Think of Cas9 like this:</strong></p>
+                    <ul style="margin-left: 20px; margin-top: 10px; line-height: 1.8;">
+                        <li>🔍 <strong>Detective:</strong> Searches DNA for the right location</li>
+                        <li>✂️ <strong>Scissors:</strong> Cuts both strands of DNA precisely</li>
+                        <li>🎯 <strong>GPS System:</strong> Uses guide RNA to find the exact target</li>
+                    </ul>
+                </div>
+
+                <p style="margin-top: 15px;"><strong>How it works:</strong></p>
+                <ol style="margin-left: 20px; margin-top: 10px; line-height: 1.8;">
+                    <li>Guide RNA attaches to Cas9 protein</li>
+                    <li>Together they search the DNA strand</li>
+                    <li>When guide RNA finds matching DNA, Cas9 locks on</li>
+                    <li>Cas9 cuts the DNA at that exact spot</li>
+                    <li>Cell repairs the cut (this is where we fix mutations!)</li>
+                </ol>
+
+                <div style="background: #d5f4e6; padding: 15px; border-radius: 5px; margin-top: 15px;">
+                    <strong>💡 Fun Fact:</strong> Cas9 originally came from bacteria! Bacteria use it as an immune system to fight off viruses. Scientists borrowed this natural defense system and turned it into a gene-editing tool.
+                </div>
+            </div>
+
+            <div class="info-box" style="background: #fef9e7; border-left-color: #f1c40f;">
+                <h3 style="color: #2c3e50; margin-bottom: 15px;">🎯 What is a PAM Site?</h3>
+                <p><strong>PAM (Protospacer Adjacent Motif)</strong> is a short DNA sequence that acts like a <strong>"start here" sign</strong> for Cas9.</p>
+                
+                <div style="margin: 20px 0; padding: 15px; background: white; border-radius: 5px;">
+                    <p><strong>Why PAM is important:</strong></p>
+                    <ul style="margin-left: 20px; margin-top: 10px; line-height: 1.8;">
+                        <li>🚦 <strong>Recognition Signal:</strong> Cas9 won't cut DNA unless it sees a PAM site nearby</li>
+                        <li>🛡️ <strong>Safety Feature:</strong> Prevents Cas9 from cutting DNA randomly</li>
+                        <li>📍 <strong>Location Marker:</strong> Tells Cas9 "the cutting spot is right next to me"</li>
+                    </ul>
+                </div>
+
+                <div style="background: #fff3cd; padding: 15px; border-radius: 5px; margin-top: 10px;">
+                    <p><strong>Common PAM Sequences:</strong></p>
+                    <code style="background: white; padding: 8px; display: inline-block; margin-top: 5px; border-radius: 3px; font-size: 16px;">NGG</code> (most common - N = any base, so AGG, TGG, CGG, or GGG)<br>
+                    <p style="margin-top: 10px;">In our simulator, the yellow highlighted blocks show <code style="background: white; padding: 3px 6px; border-radius: 3px;">AGG</code> - that's the PAM site!</p>
+                </div>
+
+                <div style="margin-top: 20px; padding: 15px; background: white; border-radius: 5px; border: 2px solid #f1c40f;">
+                    <strong>🔬 How it all works together:</strong>
+                    <ol style="margin-left: 20px; margin-top: 10px; line-height: 1.8;">
+                        <li>Cas9 scans DNA looking for PAM sites (AGG, TGG, CGG, GGG)</li>
+                        <li>When it finds one, it checks the 20 bases RIGHT BEFORE the PAM</li>
+                        <li>If those 20 bases match the guide RNA, Cas9 cuts!</li>
+                        <li>If they don't match well, Cas9 moves on</li>
+                    </ol>
+                    <p style="margin-top: 15px; background: #e8f4f8; padding: 10px; border-radius: 5px;">
+                        <strong>Example:</strong> If DNA is <code>...ATCGATCG<span style="background: #f1c40f; padding: 2px 4px;">AGG</span>...</code>, your guide RNA should be <code>UAGCUAGC</code> (complementary pairing: A↔U, T↔A, C↔G, G↔C). If they pair correctly, ✂️ SNIP!
+                    </p>
+                </div>
+            </div>
+
+            <div style="background: #e8f4f8; padding: 20px; border-left: 4px solid #3498db; margin: 20px 0; border-radius: 5px;">
+                <h3 style="color: #2c3e50; margin-bottom: 15px;">🧪 Ready to Practice?</h3>
+                <p>Now that you understand DNA, Cas9, and PAM sites, head to the <strong>Cancer Therapy</strong> tab and try cutting DNA yourself!</p>
+                <p style="margin-top: 10px;">Remember: Look for the <span style="background: #f1c40f; padding: 3px 8px; border-radius: 3px; font-weight: bold;">yellow PAM site</span>, then enter a guide RNA with the <strong>complementary sequence</strong> (A↔U, T↔A, C↔G, G↔C) for the 20 bases before it!</p>
+            </div>
+        </div>
+
+        <!-- ==================== SECTION 2: CANCER THERAPY ==================== -->
+        <div class="panel" id="panel1">
+            <h2>CRISPR Gene Editing: Cancer Therapy</h2>
+            <p>Edit DNA sequences to correct cancer-causing mutations. Target the DNA strand by entering a 20-letter guide RNA sequence.</p>
+            
+            <div class="dna-container">
+                <canvas id="dnaCanvas" width="800" height="150"></canvas>
+            </div>
+
+            <div class="hint-box">
+                <strong>💡 TRY THIS GUIDE RNA:</strong> <code style="background: white; padding: 5px; border-radius: 3px; font-size: 16px;">UAGCUAGCUAGCUAGCUAGC</code>
+                <br><small>This is the complementary sequence! Remember: A pairs with U, T pairs with A, C pairs with G, G pairs with C</small>
+            </div>
+
+            <div class="controls">
+                <div class="input-group">
+                    <label>Guide RNA (20 letters, A/U/C/G only - RNA uses U instead of T):</label>
+                    <input type="text" id="guideRNA" maxlength="20" placeholder="UAGCUAGCUAGCUAGCUAGC" style="text-transform: uppercase;">
+                </div>
+                
+                <button onclick="cutDNA()">✂️ Cut DNA</button>
+                <button onclick="resetSimulation()">🔄 Reset</button>
+                
+                <div class="result" id="result"></div>
+
+                <div class="process-box" id="processBox">
+                    <h3>🔬 What Just Happened: The CRISPR Process</h3>
+                    
+                    <div class="process-step">
+                        <strong>Step 1: Guide RNA Recognition</strong>
+                        Your guide RNA (complementary sequence) searched through the DNA strand and found a perfect match before the PAM site (AGG in yellow). The RNA bases paired with DNA: A↔U, T↔A, C↔G, G↔C.
+                    </div>
+
+                    <div class="process-step">
+                        <strong>Step 2: Cas9 Protein Binding</strong>
+                        The Cas9 enzyme locked onto the PAM site and confirmed the guide RNA match. Think of it like molecular scissors with a GPS system!
+                    </div>
+
+                    <div class="process-step">
+                        <strong>Step 3: DNA Double-Strand Break</strong>
+                        Cas9 cut BOTH strands of the DNA helix at the precise location, creating a clean break.
+                    </div>
+
+                    <div class="process-step">
+                        <strong>Step 4: Cell Repair & Gene Correction</strong>
+                        The cell's natural repair system kicks in and fixes the DNA using a healthy template, correcting the cancer-causing mutation.
+                    </div>
+
+                    <div class="mutation-compare">
+                        <div class="mutation-box before">
+                            <h4>❌ BEFORE (Mutated)</h4>
+                            <p><strong>Gene:</strong> p53 (tumor suppressor)</p>
+                            <code>...ATCG<span style="color: #e74c3c; font-weight: bold;">T</span>ATCG...</code>
+                            <p style="margin-top: 10px; font-size: 13px;">This mutation caused uncontrolled cell growth (cancer)</p>
+                        </div>
+                        <div class="mutation-box after">
+                            <h4>✅ AFTER (Corrected)</h4>
+                            <p><strong>Gene:</strong> p53 (tumor suppressor)</p>
+                            <code>...ATCG<span style="color: #27ae60; font-weight: bold;">C</span>ATCG...</code>
+                            <p style="margin-top: 10px; font-size: 13px;">Normal gene restored! Cell growth now regulated properly</p>
+                        </div>
+                    </div>
+
+                    <div style="background: #e8f4f8; padding: 15px; border-radius: 5px; margin-top: 15px;">
+                        <strong>🏥 Real-World Impact:</strong>
+                        <p style="margin-top: 5px;">This type of gene editing is being used in clinical trials to treat blood cancers, sickle cell disease, and inherited blindness. Patients who had no other options are now seeing remarkable recoveries!</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="info-box">
+                <strong>How it works:</strong> CRISPR uses a guide RNA with the <strong>complementary sequence</strong> to find matching DNA. The guide RNA pairs with DNA bases: A↔U, T↔A, C↔G, G↔C. The <span class="tooltip">PAM site<span class="tooltiptext">Protospacer Adjacent Motif (PAM) - A short DNA sequence (AGG shown in yellow) that CRISPR needs to recognize before cutting</span></span> (yellow blocks showing "AGG") tells Cas9 where to cut. Match at least 18 out of 20 base pairs for a successful cut!
+            </div>
+        </div>
+
+        <!-- ==================== SECTION 3: DESIGNER BABIES ==================== -->
+        <div class="panel" id="panel2">
+            <h2>Ethical Considerations: Designer Babies</h2>
+            <p>Explore the ethical implications of using CRISPR for human enhancement vs. disease treatment.</p>
+
+            <div class="trait-buttons">
+                <div class="trait-btn green" onclick="selectTrait('cf', 'green')">
+                    <strong>Cystic Fibrosis</strong>
+                    <p>Treat genetic disease</p>
+                </div>
+                <div class="trait-btn green" onclick="selectTrait('sickle', 'green')">
+                    <strong>Sickle Cell</strong>
+                    <p>Cure blood disorder</p>
+                </div>
+                <div class="trait-btn red" onclick="selectTrait('height', 'red')">
+                    <strong>Height</strong>
+                    <p>Cosmetic enhancement</p>
+                </div>
+                <div class="trait-btn red" onclick="selectTrait('iq', 'red')">
+                    <strong>Intelligence</strong>
+                    <p>Cognitive enhancement</p>
+                </div>
+            </div>
+
+            <div class="risk-meter">
+                <label>Ethical Risk Level:</label>
+                <div class="risk-bar">
+                    <div class="risk-fill" id="riskFill"></div>
+                </div>
+            </div>
+
+            <div class="info-box" id="ethicsInfo">
+                <strong>Understanding Gene Editing Types:</strong>
+                <p><strong>Somatic Editing:</strong> Changes made to body cells (e.g., blood, liver). Affects only the patient, not inherited by children. Currently used in cancer therapies.</p>
+                <p style="margin-top: 10px;"><strong>Germline Editing:</strong> Changes made to reproductive cells (egg/sperm) or embryos. Permanent changes passed to future generations. Highly controversial and banned in many countries.</p>
+            </div>
+
+            <div class="result" id="ethicsResult"></div>
+        </div>
+
+        <!-- ==================== SECTION 3: LEARN THE BASICS ==================== -->
+        <div class="panel" id="panel2">
+            <h2>🎓 CRISPR Basics: Understanding the Science</h2>
+            <p>Learn the fundamental concepts behind CRISPR gene editing technology.</p>
+
+            <div class="info-box" style="margin-top: 30px;">
+                <h3 style="color: #2c3e50; margin-bottom: 15px;">🧬 What is DNA?</h3>
+                <p><strong>DNA (Deoxyribonucleic Acid)</strong> is the instruction manual for all living things. It's like a recipe book that tells your cells how to build and maintain your body.</p>
+                
+                <div style="margin: 20px 0; padding: 15px; background: white; border-radius: 5px;">
+                    <p><strong>DNA has 4 letters (bases):</strong></p>
+                    <ul style="margin-left: 20px; margin-top: 10px; line-height: 1.8;">
+                        <li><strong style="color: #e74c3c;">A</strong> = Adenine (pairs with T in DNA, U in RNA)</li>
+                        <li><strong style="color: #3498db;">T</strong> = Thymine (pairs with A) - only in DNA</li>
+                        <li><strong style="color: #2ecc71;">C</strong> = Cytosine (pairs with G)</li>
+                        <li><strong style="color: #f39c12;">G</strong> = Guanine (pairs with C)</li>
+                    </ul>
+                    <p style="margin-top: 15px;"><strong>RNA uses U (Uracil) instead of T!</strong> So RNA bases are: A, U, C, G</p>
+                    <p style="margin-top: 10px;">These bases form pairs and twist into a double helix (spiral staircase shape). The sequence of these letters creates genes that determine everything about you—eye color, height, and even disease risk!</p>
+                </div>
+
+                <div style="background: #fff3cd; padding: 15px; border-radius: 5px; margin-top: 10px;">
+                    <strong>Example DNA Sequence:</strong><br>
+                    <code style="background: white; padding: 8px; display: inline-block; margin-top: 5px; border-radius: 3px; font-size: 16px;">ATCGATCG</code><br>
+                    <strong>Complementary RNA:</strong><br>
+                    <code style="background: white; padding: 8px; display: inline-block; margin-top: 5px; border-radius: 3px; font-size: 16px;">UAGCUAGC</code><br>
+                    <small>Notice: A↔U, T↔A, C↔G, G↔C pairing!</small>
+                </div>
+            </div>
+
+            <div class="info-box" style="background: #fef5e7; border-left-color: #f39c12;">
+                <h3 style="color: #2c3e50; margin-bottom: 15px;">✂️ What is Cas9?</h3>
+                <p><strong>Cas9</strong> is a protein that acts like <strong>molecular scissors</strong>. It's the cutting tool in the CRISPR system.</p>
+                
+                <div style="margin: 20px 0; padding: 15px; background: white; border-radius: 5px;">
+                    <p><strong>Think of Cas9 like this:</strong></p>
+                    <ul style="margin-left: 20px; margin-top: 10px; line-height: 1.8;">
+                        <li>🔍 <strong>Detective:</strong> Searches DNA for the right location</li>
+                        <li>✂️ <strong>Scissors:</strong> Cuts both strands of DNA precisely</li>
+                        <li>🎯 <strong>GPS System:</strong> Uses guide RNA to find the exact target</li>
+                    </ul>
+                </div>
+
+                <p style="margin-top: 15px;"><strong>How it works:</strong></p>
+                <ol style="margin-left: 20px; margin-top: 10px; line-height: 1.8;">
+                    <li>Guide RNA attaches to Cas9 protein</li>
+                    <li>Together they search the DNA strand</li>
+                    <li>When guide RNA finds matching DNA, Cas9 locks on</li>
+                    <li>Cas9 cuts the DNA at that exact spot</li>
+                    <li>Cell repairs the cut (this is where we fix mutations!)</li>
+                </ol>
+
+                <div style="background: #d5f4e6; padding: 15px; border-radius: 5px; margin-top: 15px;">
+                    <strong>💡 Fun Fact:</strong> Cas9 originally came from bacteria! Bacteria use it as an immune system to fight off viruses. Scientists borrowed this natural defense system and turned it into a gene-editing tool.
+                </div>
+            </div>
+
+            <div class="info-box" style="background: #fef9e7; border-left-color: #f1c40f;">
+                <h3 style="color: #2c3e50; margin-bottom: 15px;">🎯 What is a PAM Site?</h3>
+                <p><strong>PAM (Protospacer Adjacent Motif)</strong> is a short DNA sequence that acts like a <strong>"start here" sign</strong> for Cas9.</p>
+                
+                <div style="margin: 20px 0; padding: 15px; background: white; border-radius: 5px;">
+                    <p><strong>Why PAM is important:</strong></p>
+                    <ul style="margin-left: 20px; margin-top: 10px; line-height: 1.8;">
+                        <li>🚦 <strong>Recognition Signal:</strong> Cas9 won't cut DNA unless it sees a PAM site nearby</li>
+                        <li>🛡️ <strong>Safety Feature:</strong> Prevents Cas9 from cutting DNA randomly</li>
+                        <li>📍 <strong>Location Marker:</strong> Tells Cas9 "the cutting spot is right next to me"</li>
+                    </ul>
+                </div>
+
+                <div style="background: #fff3cd; padding: 15px; border-radius: 5px; margin-top: 10px;">
+                    <p><strong>Common PAM Sequences:</strong></p>
+                    <code style="background: white; padding: 8px; display: inline-block; margin-top: 5px; border-radius: 3px; font-size: 16px;">NGG</code> (most common - N = any base, so AGG, TGG, CGG, or GGG)<br>
+                    <p style="margin-top: 10px;">In our simulator, the yellow highlighted blocks show <code style="background: white; padding: 3px 6px; border-radius: 3px;">AGG</code> - that's the PAM site!</p>
+                </div>
+
+                <div style="margin-top: 20px; padding: 15px; background: white; border-radius: 5px; border: 2px solid #f1c40f;">
+                    <strong>🔬 How it all works together:</strong>
+                    <ol style="margin-left: 20px; margin-top: 10px; line-height: 1.8;">
+                        <li>Cas9 scans DNA looking for PAM sites (AGG, TGG, CGG, GGG)</li>
+                        <li>When it finds one, it checks the 20 bases RIGHT BEFORE the PAM</li>
+                        <li>If those 20 bases match the guide RNA, Cas9 cuts!</li>
+                        <li>If they don't match well, Cas9 moves on</li>
+                    </ol>
+                    <p style="margin-top: 15px; background: #e8f4f8; padding: 10px; border-radius: 5px;">
+                        <strong>Example:</strong> If DNA is <code>...ATCGATCG<span style="background: #f1c40f; padding: 2px 4px;">AGG</span>...</code>, your guide RNA should be <code>UAGCUAGC</code> (complementary pairing: A↔U, T↔A, C↔G, G↔C). If they pair correctly, ✂️ SNIP!
+                    </p>
+                </div>
+            </div>
+
+            <div style="background: #e8f4f8; padding: 20px; border-left: 4px solid #3498db; margin: 20px 0; border-radius: 5px;">
+                <h3 style="color: #2c3e50; margin-bottom: 15px;">🧪 Ready to Practice?</h3>
+                <p>Now that you understand DNA, Cas9, and PAM sites, head back to the <strong>Cancer Therapy</strong> tab and try cutting DNA yourself!</p>
+                <p style="margin-top: 10px;">Remember: Look for the <span style="background: #f1c40f; padding: 3px 8px; border-radius: 3px; font-weight: bold;">yellow PAM site</span>, then enter a guide RNA with the <strong>complementary sequence</strong> (A↔U, T↔A, C↔G, G↔C) for the 20 bases before it!</p>
+            </div>
+        </div>
+    </div>
+
+    <div style="text-align: center; padding: 20px; color: #95a5a6; font-size: 10px;">
+        Created by Tiana Nhem
+    </div>
+
+    <script>
+        // ==================== GLOBAL VARIABLES ====================
+        const DNA_TARGET = "ATCGATCGATCGATCGATCGAGGCGATCG"; // Target DNA with PAM site (AGG at position 20-22)
+        let canvas, ctx;
+        let cutAnimating = false;
+        let selectedTraits = { green: 0, red: 0 };
+
+        // ==================== INITIALIZATION ====================
+        window.onload = function() {
+            canvas = document.getElementById('dnaCanvas');
+            ctx = canvas.getContext('2d');
+            drawDNA();
+        };
+
+        // ==================== TAB SWITCHING ====================
+        function switchTab(index) {
+            const tabs = document.querySelectorAll('.tab');
+            const panels = document.querySelectorAll('.panel');
+            tabs.forEach((tab, i) => {
+                tab.classList.toggle('active', i === index);
+                panels[i].classList.toggle('active', i === index);
+            });
+        }
+
+        // ==================== DNA VISUALIZATION ====================
+        function drawDNA() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            const blockWidth = 28;
+            const blockHeight = 40;
+            const startX = 20;
+            const startY = 30;
+
+            // Draw DNA strand
+            for (let i = 0; i < DNA_TARGET.length; i++) {
+                const x = startX + i * blockWidth;
+                const base = DNA_TARGET[i];
+                
+                // Highlight PAM site (AGG at positions 20-22)
+                if (i >= 20 && i <= 22) {
+                    ctx.fillStyle = '#f1c40f'; // Yellow for PAM
+                } else {
+                    ctx.fillStyle = getBaseColor(base);
+                }
+                
+                ctx.fillRect(x, startY, blockWidth - 2, blockHeight);
+                ctx.strokeStyle = '#2c3e50';
+                ctx.strokeRect(x, startY, blockWidth - 2, blockHeight);
+                
+                // Draw base letter
+                ctx.fillStyle = '#2c3e50';
+                ctx.font = 'bold 18px monospace';
+                ctx.textAlign = 'center';
+                ctx.fillText(base, x + blockWidth / 2 - 1, startY + 27);
+            }
+
+            // Draw complementary strand
+            ctx.fillStyle = '#95a5a6';
+            ctx.fillRect(startX, startY + 60, DNA_TARGET.length * blockWidth - 2, 10);
+        }
+
+        function getBaseColor(base) {
+            const colors = { 'A': '#e74c3c', 'T': '#3498db', 'C': '#2ecc71', 'G': '#f39c12' };
+            return colors[base] || '#95a5a6';
+        }
+
+        // ==================== DNA CUTTING LOGIC ====================
+        function cutDNA() {
+            const guideRNA = document.getElementById('guideRNA').value.toUpperCase().trim();
+            const resultDiv = document.getElementById('result');
+
+            // Validation
+            if (guideRNA.length !== 20) {
+                resultDiv.className = 'result warning';
+                resultDiv.textContent = '⚠️ Guide RNA must be exactly 20 letters!';
+                return;
+            }
+
+            if (!/^[AUCG]+$/.test(guideRNA)) {
+                resultDiv.className = 'result warning';
+                resultDiv.textContent = '⚠️ Only A, U, C, G letters allowed (RNA uses U, not T)!';
+                return;
+            }
+
+            // Check the 20 bases BEFORE the PAM site (position 20)
+            // DNA positions 0-19 are: ATCGATCGATCGATCGATCG
+            // Complementary RNA should be: UAGCUAGCUAGCUAGCUAGC
+            const targetSeq = DNA_TARGET.substr(0, 20);
+            const matches = countComplementaryMatches(guideRNA, targetSeq);
+
+            // Determine result
+            const processBox = document.getElementById('processBox');
+            
+            if (matches >= 18) {
+                animateCut(10);
+                resultDiv.className = 'result success';
+                resultDiv.textContent = `✅ Perfect cut! Matched ${matches}/20 base pairs. Gene editing successful!`;
+                processBox.classList.add('show');
+            } else if (matches >= 15) {
+                resultDiv.className = 'result warning';
+                resultDiv.textContent = `⚠️ Off-target effect! Only ${matches}/20 matches. Risk of cutting wrong location.`;
+                processBox.classList.remove('show');
+            } else {
+                resultDiv.className = 'result warning';
+                resultDiv.textContent = `❌ No cut. Only ${matches}/20 matches. Guide RNA doesn't pair correctly with target DNA.`;
+                processBox.classList.remove('show');
+            }
+        }
+
+        function countComplementaryMatches(rna, dna) {
+            // RNA-DNA base pairing rules: A↔U, T↔A, C↔G, G↔C
+            let matches = 0;
+            for (let i = 0; i < Math.min(rna.length, dna.length); i++) {
+                const rnaBase = rna[i];
+                const dnaBase = dna[i];
+                
+                // Check complementary pairing
+                if ((rnaBase === 'A' && dnaBase === 'T') ||
+                    (rnaBase === 'U' && dnaBase === 'A') ||
+                    (rnaBase === 'C' && dnaBase === 'G') ||
+                    (rnaBase === 'G' && dnaBase === 'C')) {
+                    matches++;
+                }
+            }
+            return matches;
+        }
+
+        function animateCut(position) {
+            if (cutAnimating) return;
+            cutAnimating = true;
+
+            const blockWidth = 28;
+            const startX = 20 + position * blockWidth;
+            const startY = 30;
+
+            // Draw scissors animation
+            let frame = 0;
+            const animate = setInterval(() => {
+                drawDNA();
+                
+                // Scissors
+                ctx.save();
+                ctx.translate(startX, startY + 70);
+                ctx.rotate(frame * 0.3);
+                ctx.font = 'bold 30px Arial';
+                ctx.fillText('✂️', 0, 0);
+                ctx.restore();
+
+                frame++;
+                if (frame > 10) {
+                    clearInterval(animate);
+                    cutAnimating = false;
+                    
+                    // Draw cut line
+                    ctx.strokeStyle = '#e74c3c';
+                    ctx.lineWidth = 3;
+                    ctx.beginPath();
+                    ctx.moveTo(startX, startY);
+                    ctx.lineTo(startX, startY + 70);
+                    ctx.stroke();
+                }
+            }, 50);
+        }
+
+        function resetSimulation() {
+            document.getElementById('guideRNA').value = '';
+            document.getElementById('result').style.display = 'none';
+            document.getElementById('processBox').classList.remove('show');
+            drawDNA();
+        }
+
+        // ==================== DESIGNER BABIES SECTION ====================
+        function selectTrait(trait, type) {
+            // Set fixed risk level for each trait
+            const riskLevels = {
+                cf: 10,        // Low risk - treating disease
+                sickle: 15,    // Low risk - treating disease
+                height: 70,    // High risk - enhancement
+                iq: 90         // Very high risk - enhancement
+            };
+
+            // Update risk meter to trait-specific level
+            const riskPercent = riskLevels[trait];
+            document.getElementById('riskFill').style.width = riskPercent + '%';
+
+            showEthicsMessage(trait, type);
+        }
+
+        function showEthicsMessage(trait, type) {
+            const resultDiv = document.getElementById('ethicsResult');
+            resultDiv.style.display = 'block';
+
+            const messages = {
+                cf: { text: '✅ Treating Cystic Fibrosis - Somatic cell therapy. Ethical consensus: acceptable for disease treatment.', class: 'success' },
+                sickle: { text: '✅ Treating Sickle Cell - Somatic editing. FDA-approved therapies exist. High ethical acceptance.', class: 'success' },
+                height: { text: '⚠️ Height Enhancement - Germline editing for non-medical trait. Raises concerns about inequality and "designer babies."', class: 'warning' },
+                iq: { text: '⚠️ Intelligence Enhancement - Germline editing. Highly controversial. Banned in most countries. Risks unknown mutations.', class: 'warning' }
+            };
+
+            const msg = messages[trait];
+            resultDiv.className = 'result ' + msg.class;
+            resultDiv.textContent = msg.text;
+        }
+    </script>
+</body>
+</html>
